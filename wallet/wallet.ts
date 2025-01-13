@@ -6,10 +6,25 @@ interface Wallet {
   balance: number;
 }
 
+interface Transaction {
+  sender: string;
+  receiver: string;
+  amount: number;
+  message: string;
+  status: string;
+  timestamp: string;
+}
+
+interface BlockchainState {
+  wallets: Wallet[];
+  transactions: Transaction[]
+}
+
 class BlockchainManager {
   private static instance: BlockchainManager;
   private wallets: Wallet[] = [];
   private rl = createReadline();
+  private API_URL = "http://localhost:0771";
 
   private constructor() {};
 
@@ -24,8 +39,8 @@ class BlockchainManager {
   // Fetch blockchain only once
   public async initializeBlockchain() {
     try {
-      const response = await fetch("http://localhost:0771");
-      const blockchain = await response.json();
+      const response = await fetch(`${this.API_URL}/`);
+      const blockchain: BlockchainState = await response.json();
       this.wallets = blockchain.wallets;
     } catch(error) {
       console.error("Failed to fetch blockchain data: ", error);
@@ -91,31 +106,40 @@ class BlockchainManager {
       const recipientAddress = await ask(this.rl, "\nRecipient address: ");
       if(recipientAddress.toLowerCase() === "exit") return;
 
-      const recipient = this.wallets.find(
-        wallet => wallet.pub === recipientAddress
-      );
-
-      if(!recipient) {
-        console.error("Recipient wallet not found.");
-        await ask(this.rl, "Press enter to continue...");
-        return;
-      }
-
       const amountStr = await ask(this.rl, "Amount: ");
       const amount = parseFloat(amountStr);
 
-      if(isNaN(amount) || amount <= 0 || amount > wallet.balance) {
-        console.error("Invalid amount.");
-        await ask(this.rl, "Press enter to continue...");
-        return;
-      }
+      const message = await ask(this.rl, "Message: ");
 
       const confirm = await ask(this.rl, `Do you want to send ${amount} OMNI to ${recipientAddress}? (y/n)`);
 
       if(confirm.toLowerCase() === "y") {
-        wallet.balance -= amount;
-        recipient.balance += amount;
-        console.log(`Sent ${amount} OMNI to ${recipientAddress}`);
+        try {
+          const response = await fetch(`${this.API_URL}/transaction`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              senderPrv: wallet.prv,
+              receiverPub: recipientAddress,
+              amount,
+              message
+            })
+          });
+
+          const result = await response.json();
+
+          if(response.ok) {
+            console.log(`Successfully sent ${amount} OMNI to ${recipientAddress}`);
+            wallet.balance = result.senderBalance;
+          } else {
+            console.error(`Transaction failed: ${result.error}`);
+          }
+        } catch(error) {
+          console.error("Failed to process transaction:", error);
+        }
+
         await ask(this.rl, "Press enter to continue...");
         return;
       }

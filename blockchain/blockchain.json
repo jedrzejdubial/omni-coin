@@ -11,13 +11,5 @@
       "balance": 100
     }
   ],
-  "transactions": [
-    {
-      "sender": "omni:gba81bb0agam1nx",
-      "receiver": "omni:14jgd98ha6ahhu1",
-      "amount": 20,
-      "status": "pending",
-      "message": "First Omni transaction"
-    }
-  ]
+  "transactions": []
 }
